@@ -6,6 +6,7 @@ const ProductPage = () => {
         <div>
             hi this product page {productId}
         </div>
+        
     )
 }
 export default ProductPage

@@ -22,6 +22,9 @@ const Menu = styled.ul`
     display: flex;
     flex-direction: row;
     margin-bottom: 0;
+    @media (max-width: 765px){
+        display: none;
+    }
 `
 const MenuItem = styled.li`
     list-style-type: none;
