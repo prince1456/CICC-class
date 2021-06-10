@@ -8,6 +8,7 @@ const CollectionPage = ({ collection }) => {
     const router = useRouter()
     const { slug } = router.query
     console.log(collection)
+    
     return (
         <div>
             <Title>{collection.title}</Title>
