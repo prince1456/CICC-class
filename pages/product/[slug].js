@@ -1,10 +1,8 @@
-import { useRouter } from 'next/router';
 import client from 'shopify/shopify'
 import Image from 'next/image'
 import styled from 'styled-components';
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Row, Col, Typography, Button, InputNumber } from 'antd';
-
 const { Title, Text, Paragraph } = Typography;
 
 const Container = styled(Row)`
@@ -22,42 +20,81 @@ const CustomButton = styled.div`
     border-radius: 2px;
     cursor: pointer;
 `
-const ProductPage = ({ product, checkout }) => {
+const parseData = (data) => {
+    return JSON.parse(JSON.stringify(data))
+}
+const getDataFromStorage = (key) => {
+    const storage = window.localStorage;
+    return JSON.parse(storage.getItem(key))
+}
+const setDataToStorage = (key, data) => {
+    const storage = window.localStorage;
+    storage.setItem(key, JSON.stringify(data))
+}
+const ProductPage = ({ product }) => {
     const [amount, setAmount] = useState(1)
-    const [isCheckoutHasItem, setIsCheckoutHasItem] = useState(false)
+    const [checkout, setCheckout] = useState(null)
+    const [checkoutHasItem, setCheckoutHasItem] = useState(false)
     const variant = product.variants[0]
-    console.log({ checkout, product })
-    const addItemToCart = () => {
-        const checkoutId = checkout.id
-        const lineItemsToAdd = [
-            {
-                variantId: variant.id,
-                quantity: amount,
-                customAttributes: []
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const tempCheckout = getDataFromStorage('checkout')
+            if (tempCheckout) {
+                tempCheckout.lineItems && tempCheckout.lineItems.forEach(lineItem => {
+                    if (lineItem.title === product.title) {
+                        setAmount(lineItem.quantity)
+                        setCheckoutHasItem(true)
+                    }
+                })
+                setCheckout(tempCheckout)
+                console.log("this is useEffect log ==>", tempCheckout)
             }
-        ];
+        }
+    }, [])
 
-        // Add an item to the checkout
-        client.checkout.addLineItems(checkoutId, lineItemsToAdd).then((checkout) => {
-            console.log(JSON.parse(JSON.stringify(checkout)))
-            console.log(checkout.lineItems);
-            setIsCheckoutHasItem(true)
-        });
+    const addItemToCart = async () => {
+        try {
+            let checkoutTemp = null
+            if (getDataFromStorage('checkout')) {
+                checkoutTemp = getDataFromStorage('checkout')
+            } else {
+                checkoutTemp = await client.checkout.create()
+            }
+            let checkout = parseData(checkoutTemp)
+            const checkoutId = checkout.id
+            const lineItemsToAdd = [
+                {
+                    variantId: variant.id,
+                    quantity: amount,
+                    customAttributes: []
+                }
+            ];
+
+            checkout = await client.checkout.addLineItems(checkoutId, lineItemsToAdd)
+            console.log(parseData(checkout))
+            setCheckout(parseData(checkout))
+            setDataToStorage('checkout', checkout)
+            setCheckoutHasItem(true)
+        } catch (error) {
+            console.log(error)
+        }
     }
-    const updateCheckout = () => {
-        const checkoutId = checkout.id
-        const lineItemsToAdd = [
-            {
-                id: variant.id,
-                quantity: amount,
-            }
-        ];
-
-        // Add an item to the checkout
-        client.checkout.updateLineItems(checkoutId, lineItemsToAdd).then((checkout) => {
-            console.log(JSON.parse(JSON.stringify(checkout)))
-            console.log(checkout.lineItems);
-        });
+    const updateCheckout = async () => {
+        try {
+            const [lineItem] = checkout.lineItems.filter((lineItem) => lineItem.title === product.title)
+            const checkoutId = checkout.id
+            const lineItemToUpdate = [
+                {
+                    id: lineItem.id,
+                    quantity: amount,
+                }
+            ];
+            console.log(lineItemToUpdate, checkoutId)
+            const tempCheckout = await client.checkout.updateLineItems(checkoutId, lineItemToUpdate)
+            setDataToStorage('checkout', tempCheckout)
+        } catch (error) {
+            console.log(error)
+        }
     }
     return (
         <Container>
@@ -75,7 +112,7 @@ const ProductPage = ({ product, checkout }) => {
                     <InputNumber value={amount} onChange={() => setAmount(amount + 1)} />
                     <CustomButton onClick={() => setAmount(amount - 1)}>-</CustomButton>
                 </Row>
-                <Button onClick={!isCheckoutHasItem ? addItemToCart : updateCheckout} size="large" style={{
+                <Button onClick={!checkoutHasItem ? addItemToCart : updateCheckout} size="large" style={{
                     color: 'black',
                     borderColor: 'black',
                     marginTop: 50,
@@ -89,11 +126,10 @@ const ProductPage = ({ product, checkout }) => {
 export async function getServerSideProps(context) {
     const { slug } = context.params
     const product = await client.product.fetchByHandle(slug)
-    const checkout = await client.checkout.create()
     return {
         props: {
             product: JSON.parse(JSON.stringify(product)),
-            checkout: JSON.parse(JSON.stringify(checkout))
+
         }
     }
 }

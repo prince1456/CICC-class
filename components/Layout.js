@@ -51,7 +51,7 @@ const Layout = ({ children }) => {
                         )
                     })}
                     <MenuItem>
-                        <Badge count={5} size="small">
+                        <Badge size="small">
                             <Link href='/cart'>
                                 <ShoppingCartOutlined />
                             </Link>
